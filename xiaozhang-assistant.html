@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小张助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .chat-container {
+            width: 480px;
+            max-width: 96vw;
+            height: 90vh;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* 顶栏 */
+        .header {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .avatar {
+            width: 44px; height: 44px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .header-info h1 { font-size: 17px; font-weight: 600; }
+        .header-info p { font-size: 12px; opacity: .85; margin-top: 2px; }
+        .status-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #55efc4;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+        /* 消息区 */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 16px;
+            background: #f7f8fc;
+            scroll-behavior: smooth;
+        }
+        .messages::-webkit-scrollbar { width: 5px; }
+        .messages::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .msg-row {
+            display: flex;
+            margin-bottom: 14px;
+            animation: fadeIn .3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .msg-row.bot { justify-content: flex-start; }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-bubble {
+            max-width: 78%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.7;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .msg-row.bot .msg-bubble {
+            background: #fff;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+        .msg-row.user .msg-bubble {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .msg-time {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .msg-row.user .msg-time { text-align: right; }
+        /* 正在输入 */
+        .typing-indicator {
+            display: none;
+            padding: 4px 0 8px 0;
+        }
+        .typing-indicator.show { display: block; }
+        .typing-dots {
+            display: flex; gap: 4px; padding-left: 4px;
+        }
+        .typing-dots span {
+            width: 7px; height: 7px;
+            background: #b2bec3;
+            border-radius: 50%;
+            animation: bounce .6s infinite alternate;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: .15s; }
+        .typing-dots span:nth-child(3) { animation-delay: .3s; }
+        @keyframes bounce { to { opacity: .3; transform: translateY(-4px); } }
+        /* 输入区 */
+        .input-area {
+            padding: 12px 16px;
+            background: #fff;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .input-area input {
+            flex: 1;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 22px;
+            padding: 10px 18px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s;
+            font-family: inherit;
+        }
+        .input-area input:focus { border-color: #6c5ce7; }
+        .input-area button {
+            width: 42px; height: 42px;
+            border: none;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform .15s;
+            flex-shrink: 0;
+        }
+        .input-area button:hover { transform: scale(1.1); }
+        .input-area button:active { transform: scale(.95); }
+        /* 快捷按钮 */
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 16px 0;
+            background: #fff;
+        }
+        .quick-btn {
+            font-size: 12px;
+            padding: 5px 12px;
+            border-radius: 14px;
+            border: 1px solid #dfe6e9;
+            background: #f7f8fc;
+            color: #636e72;
+            cursor: pointer;
+            transition: all .15s;
+            font-family: inherit;
+        }
+        .quick-btn:hover { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="header">
+        <div class="avatar">🤖</div>
+        <div class="header-info">
+            <h1>小张助手</h1>
+            <p><span class="status-dot"></span>在线 · 随时为您服务</p>
+        </div>
+    </div>
+    <div class="messages" id="messages">
+        <!-- 消息将在此动态生成 -->
+    </div>
+    <div class="typing-indicator" id="typing">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+    <div class="quick-actions" id="quickActions">
+        <button class="quick-btn" data-msg="你好">👋 打招呼</button>
+        <button class="quick-btn" data-msg="现在几点了">🕐 当前时间</button>
+        <button class="quick-btn" data-msg="讲个笑话">😄 讲笑话</button>
+        <button class="quick-btn" data-msg="帮我算一道题">🧮 算数</button>
+        <button class="quick-btn" data-msg="今天运势怎么样">🔮 运势</button>
+        <button class="quick-btn" data-msg="你能做什么">❓ 帮助</button>
+    </div>
+    <div class="input-area">
+        <input type="text" id="input" placeholder="输入消息，按回车发送..." autocomplete="off">
+        <button id="sendBtn">➤</button>
+    </div>
+</div>
+
+<script>
+const messagesEl = document.getElementById('messages');
+const inputEl = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+const typingEl = document.getElementById('typing');
+
+// ========== 工具函数 ==========
+function getTime() {
+    const d = new Date();
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function addMessage(text, sender) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${sender}`;
+    row.innerHTML = `
+        <div>
+            <div class="msg-bubble">${escapeHtml(text)}</div>
+            <div class="msg-time">${getTime()}</div>
+        </div>`;
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function botReply(text) {
+    typingEl.classList.add('show');
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    const delay = 400 + Math.random() * 600;
+    setTimeout(() => {
+        typingEl.classList.remove('show');
+        addMessage(text, 'bot');
+    }, delay);
+}
+
+// ========== 知识库 & 逻辑 ==========
+const jokes = [
+    '程序员最怕什么？——怕改需求。',
+    '为什么程序员总穿黑色？——因为他们喜欢 dark mode。',
+    '世界上最远的距离不是生与死，而是你在 if 里我在 else 里。',
+    '一个 SQL 走进了酒吧，看到两张 table，就问：Can I join you?',
+    '有人问程序员："你有对象吗？" 程序员说："有啊，我 new 了一个。"',
+    '为什么 Java 开发者戴眼镜？——因为他们看不到 C#。',
+    '老板：这个项目要多久？程序员：5天。老板：给你10天够吗？程序员：那得15天。',
+    '世界上最难的事有两个：一是把别人的钱装进自己的口袋，二是把自己的想法装进别人的脑袋——这就是需求评审。'
+];
+
+const fortunes = [
+    '今日运势：⭐⭐⭐⭐⭐ 大吉！万事如意，写代码零 bug！',
+    '今日运势：⭐⭐⭐⭐ 中吉！今天适合重构，灵感不断。',
+    '今日运势：⭐⭐⭐ 小吉！平淡是福，注意休息眼睛。',
+    '今日运势：⭐⭐ 末吉！可能有小坑，记得多写单元测试。',
+    '今日运势：⭐ 小凶…小心分号遗漏，建议多喝热水。',
+    '今日运势：🌸 桃花运爆棚！据说今天你的 IDE 会自动补全你想要的一切。'
+];
+
+const greetings = [
+    '你好呀！我是小张，有什么可以帮你的吗？😊',
+    '嗨！很高兴见到你，今天想聊点什么？',
+    '你好！小张随时待命，尽管提问~',
+    '哈喽！终于等到你了，说吧，需要什么帮助？'
+];
+
+const farewells = [
+    '再见！有空随时来找我聊天~ 👋',
+    '拜拜！祝你今天一切顺利！',
+    '下次见！小张一直在这里等你~',
+    '走好不送！记得多喝水多运动哦 💪'
+];
+
+const comforts = [
+    '别难过啦，一切都会好起来的！小张给你一个虚拟拥抱 🤗',
+    '不开心的话，要不我给你讲个笑话？',
+    '生活总有起起落落，但你要相信明天会更好！加油 💪',
+    '我在呢，想聊什么都可以，小张一直陪着你。'
+];
+
+const praises = [
+    '谢谢夸奖！你也很棒呀~ 😄',
+    '哈哈，被你这么一说我都不好意思了~',
+    '你才是最厉害的！能和你聊天是我的荣幸~',
+    '谢谢！有你这样的用户，小张更有动力了！💪'
+];
+
+const songs = [
+    '🎵 让我为你唱一首歌，全世界都陪你听~',
+    '🎵 咱们不一样，不一样~每个人都有不同的境遇~',
+    '🎵 不要问我从哪里来，我的故乡在远方~',
+    '🎵 我是一只小小小小鸟，想要飞呀飞却飞也飞不高~',
+    '不好意思，小张唱歌跑调……还是聊点别的吧 😅'
+];
+
+const foods = [
+    '推荐美食：火锅！没有什么是一顿火锅解决不了的，如果有就两顿 🍲',
+    '推荐美食：烤肉！听着滋滋声，烦恼全消 🥩',
+    '推荐美食：奶茶！续命神器，程序员必备 🧋',
+    '推荐美食：麻辣烫！自由搭配，百吃不厌 🌶️',
+    '推荐美食：寿司！精致美味，仪式感满满 🍣',
+    '要不……试试自己做饭？小张可以帮你查菜谱哦！'
+];
+
+function tryMath(input) {
+    // 提取简单数学表达式
+    const mathMatch = input.match(/[\d+\-*/().%\s^]+/);
+    if (!mathMatch) return null;
+    const expr = mathMatch[0].replace(/\^/g, '**').trim();
+    if (!/^\d/.test(expr) && !/^\(/.test(expr)) return null;
+    try {
+        const result = Function('"use strict"; return (' + expr + ')')();
+        if (typeof result === 'number' && isFinite(result)) {
+            return `计算结果：${expr.replace(/\*\*/g, '^')} = ${result}`;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function getResponse(input) {
+    const s = input.trim().toLowerCase();
+    if (!s) return '你好像没输入内容哦，再说一次？';
+
+    // 打招呼
+    if (/^(你好|嗨|hi|hello|hey|哈喽|在吗|在不在)/.test(s)) {
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    }
+    // 告别
+    if (/^(再见|拜拜|bye|晚安|下次见|走了|我走了)/.test(s)) {
+        return farewells[Math.floor(Math.random() * farewells.length)];
+    }
+    // 名字
+    if (/你(叫什么|是谁|的名字|是谁)/.test(s)) {
+        return '我叫小张！是你的全能网页助手，随时为你效劳 😎';
+    }
+    // 能力
+    if (/(你能做什么|你会什么|你有什么功能|帮助|help)/.test(s)) {
+        return '我可以帮你做这些事：\n\n' +
+            '🕐 查看当前时间/日期\n' +
+            '🧮 数学计算（如：3+5*2）\n' +
+            '😄 讲笑话\n' +
+            '🔮 查运势\n' +
+            '🎵 唱歌\n' +
+            '🍲 美食推荐\n' +
+            '💡 百科问答\n' +
+            '💻 编程知识\n' +
+            '😊 闲聊解闷\n\n' +
+            '直接问我就好，小张无所不能！';
+    }
+    // 时间
+    if (/(几点|时间|现在什么时候)/.test(s)) {
+        const now = new Date();
+        return `现在是 ${now.toLocaleString('zh-CN', {
+            year: 'numeric', month: 'long', day: 'numeric',
+            weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        })}`;
+    }
+    // 日期
+    if (/(今天|日期|星期|周几)/.test(s) && !/(几点|时间)/.test(s)) {
+        const now = new Date();
+        return `今天是 ${now.toLocaleDateString('zh-CN', {
+            year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+        })}`;
+    }
+    // 笑话
+    if (/(笑话|搞笑|逗我|开心一下|幽默)/.test(s)) {
+        return jokes[Math.floor(Math.random() * jokes.length)];
+    }
+    // 运势
+    if (/(运势|运气|运气好不好|抽签|占卜)/.test(s)) {
+        return fortunes[Math.floor(Math.random() * fortunes.length)];
+    }
+    // 数学
+    if (/(算|计算|等于多少|加|减|乘|除)/.test(s)) {
+        const r = tryMath(s);
+        if (r) return r;
+        return '请输入数学表达式，比如"3+5*2"或"100/3"';
+    }
+    // 尝试直接算
+    const mathResult = tryMath(s);
+    if (mathResult) return mathResult;
+
+    // 唱歌
+    if (/(唱歌|唱一首|来一首|music)/.test(s)) {
+        return songs[Math.floor(Math.random() * songs.length)];
+    }
+    // 美食
+    if (/(吃什么|美食|推荐.*吃|饿了|午饭|晚饭|早餐|夜宵)/.test(s)) {
+        return foods[Math.floor(Math.random() * foods.length)];
+    }
+    // 天气（模拟）
+    if (/(天气|气温|下雨|下雪)/.test(s)) {
+        const weathers = ['晴天 ☀️', '多云 ⛅', '小雨 🌧️', '大雨 ⛈️', '下雪 ❄️', '大风 💨'];
+        const temp = Math.floor(Math.random() * 30 + 5);
+        return `小张无法获取实时天气，但可以告诉你：今天大概率是${weathers[Math.floor(Math.random() * weathers.length)]}，气温约 ${temp}°C。\n（建议查看手机天气应用获取准确信息哦~）`;
+    }
+    // 安慰
+    if (/(难过|伤心|不开心|郁闷|烦躁|好累|压力大|烦|焦虑|郁闷|emo)/.test(s)) {
+        return comforts[Math.floor(Math.random() * comforts.length)];
+    }
+    // 夸奖
+    if (/(厉害|真棒|好棒|牛|优秀|赞|谢谢|感谢|thank)/.test(s)) {
+        return praises[Math.floor(Math.random() * praises.length)];
+    }
+    // 编程相关
+    if (/(javascript|js|java|python|编程|代码|程序|bug|前端|后端|html|css|框架)/.test(s)) {
+        const progAnswers = [
+            '编程是一门艺术，每一行代码都是你的画笔！有什么具体的编程问题想问吗？',
+            '关于编程，小张可是内行！HTML、CSS、JavaScript、Python 都可以聊~',
+            '遇到 bug 不要慌，print 大法好！需要帮你分析具体问题吗？',
+            '前端还是后端？框架还是原生？告诉小张你正在学什么，我来帮你~',
+            '编程最重要的是动手实践！看十遍不如敲一遍，有问题随时问我。'
+        ];
+        return progAnswers[Math.floor(Math.random() * progAnswers.length)];
+    }
+    // 学习
+    if (/(学习|考试|复习|作业|读书|考研|高考)/.test(s)) {
+        const studyAnswers = [
+            '学习是一场马拉松，不是百米冲刺！保持节奏，劳逸结合 📚',
+            '推荐番茄工作法：25分钟专注 + 5分钟休息，效率翻倍！🍅',
+            '别给自己太大压力，每天进步一点点就是胜利！',
+            '有不会的题可以问小张，虽然我不保证全对，但可以一起思考~ 😄'
+        ];
+        return studyAnswers[Math.floor(Math.random() * studyAnswers.length)];
+    }
+    // 游戏
+    if (/(游戏|王者|原神|英雄联盟|吃鸡|moba|rpg)/.test(s)) {
+        const gameAnswers = [
+            '适度游戏益脑，沉迷游戏伤身！玩一会儿放松一下就好~ 🎮',
+            '小张最擅长的游戏是……猜数字！要不要来一局？',
+            '游戏虽好，可不要贪玩哦！记得喝水休息~',
+            '打完这局就学习/工作，是不是你每次都这么说？😏'
+        ];
+        return gameAnswers[Math.floor(Math.random() * gameAnswers.length)];
+    }
+    // 自我介绍
+    if (/(自我介绍|介绍一下你自己|说说你自己)/.test(s)) {
+        return '大家好，我是小张！一个运行在浏览器里的全能助手。我上知天文下知地理（大概），能算数、讲笑话、查时间、聊编程……虽然偶尔会不靠谱，但态度绝对认真！😎';
+    }
+    // 翻译（简单模拟）
+    if (/(翻译|translate|英语怎么说|怎么读)/.test(s)) {
+        const simpleDict = {
+            '你好': 'Hello', '谢谢': 'Thank you', '再见': 'Goodbye',
+            '我爱你': 'I love you', '加油': 'Come on / Go for it',
+            '早上好': 'Good morning', '晚安': 'Good night'
+        };
+        for (const [cn, en] of Object.entries(simpleDict)) {
+            if (s.includes(cn)) return `"${cn}" 的英语是 "${en}"`;
+        }
+        return '小张的词汇量有限，只能翻译简单的词汇。试试说"你好 英语怎么说"？';
+    }
+    // 猜数字游戏
+    if (/(猜数字|玩游戏|来一局)/.test(s)) {
+        startGuessGame();
+        return '🎮 猜数字游戏开始！我心里想了一个 1~100 的数字，你来猜！直接输入数字即可。';
+    }
+    // 猜数字游戏中
+    if (guessGame.active) {
+        return handleGuess(parseInt(s));
+    }
+
+    // 百科问答
+    const baike = {
+        '地球': '🌍 地球是太阳系中第三颗行星，也是目前已知唯一存在生命的星球。它大约有45.4亿年的历史。',
+        '太阳': '☀️ 太阳是太阳系的中心恒星，表面温度约5500°C，核心温度高达1500万°C。',
+        '月球': '🌙 月球是地球唯一的天然卫星，距离地球约38.4万公里，它总是以同一面朝向地球。',
+        '光速': '💡 光速约为每秒30万公里（299,792,458 m/s），是宇宙中信息传播的速度上限。',
+        '圆周率': '🥧 圆周率 π ≈ 3.14159265358979...，它是一个无理数，小数部分无限不循环。',
+        '长城': '🏯 万里长城是中国古代伟大的防御工程，总长度超过2万公里，是世界文化遗产。',
+        '水': '💧 水的化学式是 H₂O，由两个氢原子和一个氧原子组成。地球表面约71%被水覆盖。',
+        '人工智能': '🤖 人工智能（AI）是计算机科学的一个分支，旨在创造能模拟人类智能的系统。我是它的一个迷你版~',
+        '量子': '⚛️ 量子力学研究微观世界的物理规律，核心概念包括叠加态、纠缠和不确定性原理。薛定谔的猫就是量子思想实验。',
+        '黑洞': '🕳️ 黑洞是时空中引力极强的区域，连光都无法逃逸。2019年人类首次拍到了黑洞的照片。'
+    };
+    for (const [keyword, answer] of Object.entries(baike)) {
+        if (s.includes(keyword)) return answer;
+    }
+
+    // 万能回复
+    const fallbacks = [
+        `你说的"${input}"很有意思！不过小张还不太理解，能换个说法吗？`,
+        '嗯……这个问题超出了小张的知识范围，不如聊点别的？输入"帮助"看看我能做什么~',
+        '小张思考了一下，虽然不太确定你想问什么，但我愿意继续聊！',
+        '这个问题好难啊！小张的脑容量有限，试试问点别的？比如"讲个笑话"或"现在几点"',
+        '收到！但小张没太明白，可以更详细地描述一下吗？'
+    ];
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+}
+
+// ========== 猜数字游戏 ==========
+const guessGame = { active: false, target: 0, attempts: 0 };
+
+function startGuessGame() {
+    guessGame.active = true;
+    guessGame.target = Math.floor(Math.random() * 100) + 1;
+    guessGame.attempts = 0;
+}
+
+function handleGuess(num) {
+    if (isNaN(num)) return '请输入一个数字哦！';
+    guessGame.attempts++;
+    if (num === guessGame.target) {
+        guessGame.active = false;
+        return `🎉 恭喜你猜对了！答案就是 ${guessGame.target}，你用了 ${guessGame.attempts} 次！`;
+    } else if (num > guessGame.target) {
+        return `${num} 太大了！再猜猜 ⬇️（已猜 ${guessGame.attempts} 次）`;
+    } else {
+        return `${num} 太小了！再猜猜 ⬆️（已猜 ${guessGame.attempts} 次）`;
+    }
+}
+
+// ========== 事件绑定 ==========
+function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    addMessage(text, 'user');
+    inputEl.value = '';
+    const reply = getResponse(text);
+    botReply(reply);
+}
+
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+// 快捷按钮
+document.querySelectorAll('.quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        inputEl.value = btn.dataset.msg;
+        sendMessage();
+    });
+});
+
+// ========== 初始欢迎 ==========
+setTimeout(() => {
+    addMessage('你好！我是小张 👋\n你的全能网页助手，有什么问题尽管问我！\n\n试试点击下方快捷按钮，或者直接输入消息~', 'bot');
+}, 500);
+</script>
+
+</body>
+</html>
